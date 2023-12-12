@@ -119,10 +119,28 @@ class DistractionData(DailyData):
         self.rawphonedata = DailyData.columnData(self, "field4")
         self.rawipaddata = DailyData.columnData(self, "field5")
         self.rawmovedata = self.formatMoveData(DailyData.columnData(self, "field7"))
-        self.distractiondata = self.processDistractionData()
+        self.processedmoveamountdata = self.processMoveAmountData()
         self.processedmovedata = self.processMoveData()
+        self.processeddevicedata = self.processDeviceData()
+        self.distractiondata = self.processDistractionData()
 
     def processDistractionData(self):
+        result = [a + b for a, b in zip(self.processedmoveamountdata, self.processeddevicedata)]
+        return result
+
+    def processMoveAmountData(self):
+        disvalues = [0] * len(self.times15min)
+
+        # Add when I move around the house (== not sitting and working well)
+        for index, element in enumerate(self.rawmovedata[0]):
+            element = DailyData.Closest15min(self, element)
+            valueIndex = DailyData.findTimeIndex(self, self.times15min, element)
+            if valueIndex != None:
+                disvalues[valueIndex] += len(self.rawmovedata[1][index])
+
+        return disvalues
+    
+    def processDeviceData(self):
         disvalues = [0] * len(self.times15min)
 
         # Add when I open 'bad' app on my phone
@@ -139,14 +157,8 @@ class DistractionData(DailyData):
             if valueIndex != None:
                 disvalues[valueIndex] += int(self.rawipaddata[1][index])
 
-        # Add when I move around the house (== not sitting and working well)
-        for index, element in enumerate(self.rawmovedata[0]):
-            element = DailyData.Closest15min(self, element)
-            valueIndex = DailyData.findTimeIndex(self, self.times15min, element)
-            if valueIndex != None:
-                disvalues[valueIndex] += len(self.rawmovedata[1][index])
-
         return disvalues
+
     
     def processMoveData(self):
         moveavgvalues = [None] * len(self.times15min)
@@ -176,7 +188,7 @@ class DistractionData(DailyData):
             if element == "":
                 moveavgvalues[index] = currentstatus
             elif isinstance(element, str):
-                moveavgvalues[index] = len(element)
+                moveavgvalues[index] = int(element[-1])
                 currentstatus = int(element[-1])
 
         return moveavgvalues
@@ -190,13 +202,6 @@ class SleepData(DailyData):
         self.rawphonedata = DailyData.columnData(self, "field4")
         self.processedsleepdata = self.processSleepData2()
         
-
-    def processSleepData1(self):
-        sleepvalues = [0] * len(self.times15min)
-        for element in self.rawsleepdata[0]:
-            valueIndex = DailyData.findTimeIndex(self, self.times15min, DailyData.Closest15min(self, element))
-            sleepvalues[valueIndex] = 1
-        return sleepvalues
     
     def processSleepData2(self):
         sleepvalues = [0] * len(self.times15min)
@@ -317,6 +322,7 @@ def DayData(date):
         'timestamp': timestamp,
         'lightDataset': lightData.processedlightdata,
         'disDataset': distractionData.distractiondata,
+        'whereDataset': distractionData.processedmovedata,
         'sleepDataset':sleepData.processedsleepdata,
         'workDataset': workData.processedworkdata,
         'workduration': workData.workduration
@@ -331,7 +337,9 @@ def formatTimeString(time):
     return time
 
 ### Testing the data processing here:
-data = DayData("2023-11-25")
+data = DayData("2023-12-11")
 # print (data['lightDataset'])
 # keydata = KeyboardData("2023-11-22")
 # print(keydata.workduration)
+
+
