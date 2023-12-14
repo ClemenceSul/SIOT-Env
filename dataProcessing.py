@@ -90,6 +90,18 @@ class LightData(DailyData):
         super().__init__(data)
         self.rawlightdata = DailyData.columnData(self, "field3")
         self.processedlightdata = self.processLightData()
+        self.lightduration = self.LightDuration()
+
+    def LightDuration(self):
+        duration = 0
+        for value in self.processedlightdata:
+            if value != None and value >= 35:
+                duration += 1
+        duration = duration * 15
+        total_light = (duration)/60
+        return round(total_light, 2)
+
+
 
     def processLightData(self):
         lumavgvalues = [None] * len(self.times15min)
@@ -123,6 +135,7 @@ class DistractionData(DailyData):
         self.processedmovedata = self.processMoveData()
         self.processeddevicedata = self.processDeviceData()
         self.distractiondata = self.processDistractionData()
+        self.inroomduration = self.InRoomLength()
 
     def processDistractionData(self):
         result = [a + b for a, b in zip(self.processedmoveamountdata, self.processeddevicedata)]
@@ -166,7 +179,6 @@ class DistractionData(DailyData):
         movealltimes = self.rawmovedata[0]
         moveallvalues = self.rawmovedata[1]
         
-
         # Cycle through all the values of time, grouping by 15min
         timelength = len(movealltimes)
         timeindex = 1
@@ -193,17 +205,36 @@ class DistractionData(DailyData):
 
         return moveavgvalues
 
+    def InRoomLength(self):
+        duration = 0
+        for value in self.processedmovedata:
+            if value == 1:
+                duration += 1
+        duration = duration * 15
+        total_inroom = (duration)/60
+        return round(total_inroom, 2)
+
         
 class SleepData(DailyData):
     def __init__(self, data):
         super().__init__(data)
-        self.rawsleepdata = DailyData.columnData(self, "field6")
         self.rawmovedata = self.formatMoveData(DailyData.columnData(self, "field7"))
         self.rawphonedata = DailyData.columnData(self, "field4")
-        self.processedsleepdata = self.processSleepData2()
-        
+        self.processedsleepdata = self.processSleepData()
+        self.sleepduration = self.sleepLength()
+
+    def sleepLength(self):
+        firssleepindex = self.processedsleepdata.index(1)
+        for i in range(firssleepindex, len(self.processedsleepdata)):
+            if self.processedsleepdata[i] != 1:
+                lastsleepindex = i
+                break
+        duration = (lastsleepindex - firssleepindex) * 15
+        total_sleep = (duration)/60
+        return round(total_sleep, 2)
+
     
-    def processSleepData2(self):
+    def processSleepData(self):
         sleepvalues = [0] * len(self.times15min)
         # Add when I'm awake and moving in my room
         firstmoveindex = next((index for index, element in enumerate(self.rawmovedata[1]) if element != '' and self.rawmovedata[0][index]>500), None)
@@ -241,7 +272,6 @@ class SleepData(DailyData):
                 currentstatus = 0
 
         return(sleepvalues)
-
         
 
 class KeyboardData(DailyData):
@@ -321,9 +351,12 @@ def DayData(date):
     processeddata = {
         'timestamp': timestamp,
         'lightDataset': lightData.processedlightdata,
+        'lightduration': lightData.lightduration,
         'disDataset': distractionData.distractiondata,
         'whereDataset': distractionData.processedmovedata,
+        'inroomduration': distractionData.inroomduration,
         'sleepDataset':sleepData.processedsleepdata,
+        'sleepduration': sleepData.sleepduration,
         'workDataset': workData.processedworkdata,
         'workduration': workData.workduration
     }
@@ -337,7 +370,7 @@ def formatTimeString(time):
     return time
 
 ### Testing the data processing here:
-data = DayData("2023-12-11")
+# data = DayData("2023-12-11")
 # print (data['lightDataset'])
 # keydata = KeyboardData("2023-11-22")
 # print(keydata.workduration)

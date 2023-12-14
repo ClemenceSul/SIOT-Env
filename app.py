@@ -13,19 +13,20 @@ app = dash.Dash(__name__)
 def create_graphs():
 
     NbOfDays = 7
-    # GET A LIST OF DATES 
-    graphDates = []
-    for i in range(0, NbOfDays):
-        today = datetime.date.today() - datetime.timedelta(days=i)
+    # # GET A LIST OF DATES 
+    # graphDates = []
+    # for i in range(0, NbOfDays):
+    #     today = datetime.date.today() - datetime.timedelta(days=i)
     
-        # Get the current date components
-        year = today.year
-        month = today.month
-        day = today.day
-        # Format the date as a string (optional)
-        todayDate = f"{year}-{month:02d}-{day:02d}"
-        graphDates.append(todayDate)
-    graphDates = graphDates[::-1]
+    #     # Get the current date components
+    #     year = today.year
+    #     month = today.month
+    #     day = today.day
+    #     # Format the date as a string (optional)
+    #     todayDate = f"{year}-{month:02d}-{day:02d}"
+    #     graphDates.append(todayDate)
+    # graphDates = graphDates[::-1]
+    graphDates = ["2023-11-22", "2023-11-23", "2023-11-24", "2023-11-25", "2023-11-26", "2023-11-27", "2023-11-28"]
     print(graphDates)
     
     mainDatasetLength = 3
@@ -36,10 +37,12 @@ def create_graphs():
         'sleep': [],
         'work': [],
     }
+    weeklySleep = []
     weeklyProductivity = []
     for index, date in enumerate(graphDates):
         dailyDataset = DayData(date)
         weeklyProductivity.append(dailyDataset['workduration'])
+        weeklySleep.append(dailyDataset['sleepduration'])
 
         if index >= (NbOfDays-mainDatasetLength):
             mainDataset['timestamp'].append(dailyDataset['timestamp'])
@@ -54,8 +57,6 @@ def create_graphs():
         'sleep': [value for day_values in mainDataset['sleep'] for value in day_values],
         'work': [value for day_values in mainDataset['work'] for value in day_values],
     }
-    # print(mainDataset['timestamp'])
-    print(weeklyProductivity)
 
     # Create a simple line chart using Dash's dcc.Graph
     figure_pastlife = {
@@ -97,7 +98,7 @@ def create_graphs():
         'layout': go.Layout(
             title='My Past Life',
             xaxis=dict(
-                title='X-axis',
+                title='Time',
                 type='category',
                 categoryorder='array',
                 showgrid=False,
@@ -141,7 +142,7 @@ def create_graphs():
         'layout': go.Layout(
             title='My Productivity',
             xaxis=dict(
-                title='X-axis',
+                title='Days',
                 type='category',
                 showgrid=False,
             ),
@@ -153,9 +154,35 @@ def create_graphs():
         )
     }
 
+    figure_sleep = {
+        'data': [
+            go.Bar( # Sleep
+                x=graphDates,
+                y=weeklySleep,
+                marker=dict(
+                    color='rgba(123,128,238,0.5)',
+                )
+            ),
+        ],
+        'layout': go.Layout(
+            title='My Sleep',
+            xaxis=dict(
+                title='Days',
+                type='category',
+                showgrid=False,
+            ),
+            yaxis=dict(
+                title='Sleep (hours)', 
+                side='left', 
+                showgrid=True,
+            )
+        )
+    }
+
     return {
         'pastlife': figure_pastlife,
-        'productivity': figure_productivity
+        'productivity': figure_productivity,
+        'sleep': figure_sleep
         }
 
 allgraphs = create_graphs()
@@ -164,7 +191,6 @@ allgraphs = create_graphs()
 app.layout = html.Div(children=[
     html.H1('IMPACTING MY PRODUCTIVITY'),
     html.H3('(May the light shine on my work!)'),
-    html.H4('Write a short description of what is on this website here'),
     # Call the create_graph function to include the graph in the layout
     html.Div(children=[
         dcc.Graph(
@@ -182,12 +208,13 @@ app.layout = html.Div(children=[
         html.Div(children=[
             dcc.Graph(
                 id='bar-plot2',
-                figure=allgraphs['productivity']
+                figure=allgraphs['sleep']
             )
         ], className="graph_box half_row", id="prod_box2"),
     ], className="graph_row")
 ])
 
+
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
     
