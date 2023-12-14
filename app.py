@@ -1,3 +1,4 @@
+### IMPORTS 
 import dash
 from dash import dcc, html
 import plotly.express as px
@@ -5,14 +6,17 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 import pandas as pd
 
-from dataProcessing import DayData
-import datetime
+# Data processing function
+from dataProcessing import DayData 
 
+### CREATE APP
 app = dash.Dash(__name__)
 
+### SET-UP GRAPHS
 def create_graphs():
-
     NbOfDays = 7
+    ### (the code commented-out below corresponds to the proper data retreival. 
+    ### As I have interrupted my data collection, graphDates has been given some dates for app visualisation purposes.) 
     # # GET A LIST OF DATES 
     # graphDates = []
     # for i in range(0, NbOfDays):
@@ -29,6 +33,7 @@ def create_graphs():
     graphDates = ["2023-11-22", "2023-11-23", "2023-11-24", "2023-11-25", "2023-11-26", "2023-11-27", "2023-11-28"]
     print(graphDates)
     
+    ### RETREIVE ALL DATA FROM DATA PROCESSING
     mainDatasetLength = 3
     mainDataset = {
         'timestamp': [],
@@ -58,7 +63,7 @@ def create_graphs():
         'work': [value for day_values in mainDataset['work'] for value in day_values],
     }
 
-    # Create a simple line chart using Dash's dcc.Graph
+    # FIGURE 1 - SHOW THE LIGHT, DISTRACTION & WORK DATA FOR THE PAST 3 DAYS
     figure_pastlife = {
         'data': [
             go.Scatter( # Luminosity
@@ -129,6 +134,7 @@ def create_graphs():
         )
     }
 
+    # FIGURE 2 - SHOW THE PRODUCTIVITY OVER THE PAST 7 DAYS
     figure_productivity = {
         'data': [
             go.Bar( # Productivity
@@ -154,6 +160,7 @@ def create_graphs():
         )
     }
 
+    # FIGURE 2 - SHOW THE SLEEP OVER THE PAST 7 DAYS
     figure_sleep = {
         'data': [
             go.Bar( # Sleep
@@ -179,6 +186,7 @@ def create_graphs():
         )
     }
 
+    # Return all three figures
     return {
         'pastlife': figure_pastlife,
         'productivity': figure_productivity,
@@ -187,7 +195,7 @@ def create_graphs():
 
 allgraphs = create_graphs()
 
-# Define the layout of the app
+# APP LAYOUT
 app.layout = html.Div(children=[
     html.H1('IMPACTING MY PRODUCTIVITY'),
     html.H3('(May the light shine on my work!)'),
@@ -214,7 +222,7 @@ app.layout = html.Div(children=[
     ], className="graph_row")
 ])
 
-
+# RUN APP LOCALLY
 if __name__ == '__main__':
     app.run_server(debug=False)
     

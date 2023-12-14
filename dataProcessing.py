@@ -1,10 +1,12 @@
+### IMPORTS
 import numpy as np
 import requests
 from datetime import datetime, time, timedelta
 import socket
 
-import aw_client
+import aw_client #ActivityWatch
 
+# GENERAL FUNCTIONS
 class DailyData():
     def __init__(self, data):
         self.data = data
@@ -124,7 +126,7 @@ class LightData(DailyData):
                     timeindex += 1
         return lumavgvalues
 
-### ... Distraction Processing ... ###
+### ... Distraction Processing (device + movements) ... ###
 class DistractionData(DailyData):
     def __init__(self, data):
         super().__init__(data)
@@ -214,7 +216,7 @@ class DistractionData(DailyData):
         total_inroom = (duration)/60
         return round(total_inroom, 2)
 
-        
+### ... Sleep Processing ... ###
 class SleepData(DailyData):
     def __init__(self, data):
         super().__init__(data)
@@ -273,7 +275,7 @@ class SleepData(DailyData):
 
         return(sleepvalues)
         
-
+### ... Productivity Processing ... ###
 class KeyboardData(DailyData):
     def __init__(self, date):
         super().__init__(None)
@@ -333,12 +335,15 @@ class KeyboardData(DailyData):
         return round(total_hours, 2)
                 
 
+### MAIN FUNCTION
 def DayData(date):
+    # Collect data from ThingSpeak
     url = "https://api.thingspeak.com/channels/2320730/feeds.json?api_key=M27V5SG8IEU5CRMH&start=" + date + "%2000:00:00&end=" + date + "%2023:59:59"
     response = requests.get(url)
     response = response.json()
     raw_data = response['feeds']
 
+    # Process the data
     lightData = LightData(raw_data)
     distractionData = DistractionData(raw_data)
     workData = KeyboardData(date)
@@ -348,6 +353,7 @@ def DayData(date):
     for index, time in enumerate(timestamp):
         timestamp[index] = date + ' ' + formatTimeString(time)
 
+    # Return the data
     processeddata = {
         'timestamp': timestamp,
         'lightDataset': lightData.processedlightdata,

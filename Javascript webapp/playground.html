@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Playground</title>
+
+    <!-- Chart.js import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+
+    <!-- Bootstrap core CSS-->
+    <!-- <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet"> -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <!-- Bootstrap core JS-->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js">
+
+  </head>
+
+ <style>
+ 	body {
+    	margin-top: 40px;
+	}
+ </style>
+
+  <body id="page-top">
+
+    <div id="wrapper">
+
+      <div id="content-wrapper">
+
+        <div class="container-fluid">
+
+          <center>
+          	<h2>How does my Room Environment affect my Productivity?</h2>
+          	<h4>SIOT Project 2023</h4>
+          </center>
+
+          <p id="dataFromPython">Values here</p>
+          
+          <input type="file" id="fileInput" accept=".json" />
+          <pre id="output"></pre>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Demo scripts for this page-->
+    <script>
+      function getDailyData (date) {
+        let responseData;
+        url = "https://api.thingspeak.com/channels/2320730/feeds.json?api_key=M27V5SG8IEU5CRMH&start=" + date + "%2000:00:00&end=" + date + "%2023:59:59"
+        return fetch(url)
+          .then((response) => {
+            return response.json();
+          })
+      }
+      
+      // created_at, entry_id, field1(temp), field2(humidity), field3(luminosity), field4(Phone), field5(Ipad), field6(sleep), field7(room)
+      function columnData(data, field) {
+        datalength = Object.keys(data).length;
+        let allvalues = [];
+        let alltimes = [];
+        // Extract all the column values
+        for (let i = 0; i <= (datalength-1); i++) {
+          dataRow = data[i]
+          value = dataRow[field]
+          if (value !== null) {
+            alltimes.push(formatDate(dataRow['created_at']))
+            allvalues.push(value)
+          }
+        }
+        return [alltimes, allvalues]
+      }
+      
+      function processDataLum(data) {
+        let [lumalltimes, lumallvalues] = columnData(data, "field3")
+      
+        let times15min = arr15min();
+        let lumavgvalues = Array(times15min.length).fill(null);
+      
+        // Cycle through all the values of time
+        timelength = lumalltimes.length
+        timeindex = 1
+        for (let i = 0; i <= (timelength-1); i++) {
+            intTime = lumalltimes[i]
+            if (i == 0) { // Deal with the first row
+              lumavgvalues[0] = calculateAverage([lumallvalues[0], lumallvalues[1]])
+            } else if (intTime == times15min[timeindex]) { // Deal with normal case
+              lumavgvalues[timeindex] = calculateAverage([lumallvalues[i-1],lumallvalues[i],lumallvalues[i+1]])
+              timeindex += 1
+            } else if (intTime > times15min[timeindex]){ // Deal with missing values
+              lumavgvalues[timeindex] = calculateAverage([lumallvalues[i-1],lumallvalues[i]])
+              timeindex += 1
+            }
+        };
+      
+        return {
+          timestamp: times15min,
+          lumvalues: lumavgvalues
+        }
+      }
+      
+      function arr15min() {
+        let timearray = [0];
+        for (i = 0; i<=2340;) {
+          // Update time counter
+          if (i % 100 == 45) {
+            i += 55
+          } else {
+            i += 15
+          }
+          timearray.push(i)
+        }
+        return timearray
+      }
+      
+      function processDataDev(data) {
+        // Goal is to flag whenever I open an app or close it
+        let [phonealltimes, phoneallvalues] = columnData(data, "field4")
+        let [ipadalltimes, ipadallvalues] = columnData(data, "field5")
+      
+        let times15min = arr15min();
+        let devvalues = Array(times15min.length).fill(0);
+      
+        phonealltimes.forEach(function(element,index) {          
+          // Transform values to match closest 15 min mark
+          element = MakeClosest15mark(element)
+          devvalues[findTimeIndex(times15min, element)] += parseInt(phoneallvalues[index])
+        })
+      
+        ipadalltimes.forEach(function(element,index) {          
+          // Transform values to match closest 15 min mark
+          element = MakeClosest15mark(element)
+          devvalues[findTimeIndex(times15min, element)] += parseInt(ipadallvalues[index])
+        })
+      
+        return {
+          timestamp: times15min,
+          devvalues: devvalues
+        }
+      }
+
+
+      function processDataSleep(data) {
+        let [sleepalltimes, sleepallvalues] = columnData(data, "field6")
+
+        let times15min = arr15min();
+        let sleepvalues = Array(times15min.length).fill(0);
+
+        sleepalltimes.forEach((element, index) => {
+          sleepvalues[findTimeIndex(times15min, MakeClosest15mark(element))] = 1
+        })
+        return sleepvalues
+      }
+
+
+
+
+      function processDataMovement(data) {
+        let [movealltimes, moveallvalues] = columnData(data, "field7")
+
+        let times15min = arr15min();
+        let moveavgvalues = Array(times15min.length).fill(null);
+
+        // Format the array of values
+        moveallvalues.forEach((element, index) => {
+          element = element.slice(1) // Remove the buffer 2
+          moveallvalues[index] = element
+        })
+
+        // Cycle through all the values of time, grouping by 15min
+        timelength = movealltimes.length
+        timeindex = 1
+        for (let i = 0; i <= (timelength-1); i++) {
+            intTime = movealltimes[i]
+            if (i == 0) { // Deal with the first row
+              moveavgvalues[0] = moveallvalues[0] + moveallvalues[1]
+            } else if (intTime == times15min[timeindex]) { // Deal with normal case
+              moveavgvalues[timeindex] = moveallvalues[i-1] + moveallvalues[i] + moveallvalues[i+1]
+              timeindex += 1
+            } else if (intTime > times15min[timeindex]){ // Deal with missing values
+              moveavgvalues[timeindex] = moveallvalues[i-1] + moveallvalues[i]
+              timeindex += 1
+            }
+        };
+
+        console.log("before: ",moveavgvalues)
+        // Fill in as a step function
+        let currentstatus = 1
+        moveavgvalues.forEach((element, index) => {
+          if (element == "") {
+            moveavgvalues[index] = currentstatus
+          } else {
+            moveavgvalues[index] = element.length
+            currentstatus = parseInt(element[element.length - 1])
+          }
+        })
+
+        return moveavgvalues
+      }
+
+
+
+      
+      function MakeClosest15mark(element) {
+        tweakedelement = (element % 100) % 15
+        if (tweakedelement == 5) {
+          element -= 5
+        } else if (tweakedelement == 10) {
+          element += 5
+        } else {
+          element = MakeClosest15mark(element+1)
+        }
+        if ((element % 100) == 60) {
+          element += 40
+        }
+        return element
+      }
+
+      function findTimeIndex(timearr, value) {
+        for (let i = 0; i < timearr.length; i++) {
+          if (timearr[i] === value) {
+            targetIndex = i;
+            break; // Exit the loop once the first match is found
+          }
+        }
+        return targetIndex
+      }
+      
+      function formatDate(date) {
+        let formattedDate = date.substring(11, 13) + date.substring(14, 16);
+        return formatTime(formattedDate)
+      }
+      
+      function formatTime(time) {
+        intTime = parseInt(time)
+        intTime = Math.round(intTime / 5) * 5;
+        if (intTime % 100 == 60) {
+          intTime += 40
+        }
+        return intTime
+      }
+      
+      function calculateAverage(arr) {
+        let sum = arr.reduce((total, value) => total + parseFloat(value), 0);
+        return sum / arr.length;
+      }
+
+      getDailyData("2023-11-22")
+      .then(data => {
+        console.log(data)
+        let lumresult = processDataLum(data['feeds'])
+        console.log(lumresult)
+        let deviceresult = processDataDev(data['feeds'])
+        console.log(deviceresult)
+        let sleepresult = processDataSleep(data['feeds'])
+        console.log(sleepresult)
+        let moveresult = processDataMovement(data['feeds'])
+        console.log(moveresult)
+      })
+
+
+      // afk file upload
+      document.getElementById('fileInput').addEventListener('change', handleFile);
+
+      function handleFile(event) {
+        const fileInput = event.target;
+        const file = fileInput.files[0];
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const fileContent = e.target.result;
+            try {
+              const jsonData = JSON.parse(fileContent);
+              afkData = formatAfkData(jsonData)
+              localStorage.setItem('afk_data', JSON.stringify(afkData, null, 2))
+            } catch (error) {
+              console.error('Error parsing JSON:', error);
+            }
+          };
+          reader.readAsText(file);
+        }
+        window.location.reload();
+      }
+
+      function formatAfkData(jsonData) {
+        // remove padding
+        buckets = jsonData['buckets']
+        raw_afk_data = buckets['aw-watcher-afk_ClemencePC2']
+        just_afk_data = raw_afk_data['events']
+
+        let afk_data = [[0, 0, 0, 0]];
+        // Sort as an array of arrays [date, time, duration, status]
+        const entries = Object.entries(just_afk_data);
+
+        for (let i = entries.length - 1; i >= 0; i--) {
+          const [key, value] = entries[i];
+          let prev_line = afk_data[afk_data.length-1]
+          // remove very short durations (<1min)
+          duration = (value.duration)/60 //minutes
+          if (duration > 1) {
+            // remove redundancies
+            time = parseInt(value.timestamp.substring(11, 13) + value.timestamp.substring(14, 16)) // Integer
+            status = value.data.status // String: afk or not-afk
+            if (status != prev_line[3]) {
+              date = value.timestamp.substring(0,10) // String
+              afk_data.push([date, time, duration, status])
+            }
+          }
+        }
+        return afk_data.slice(1)
+      }
+
+
+
+      // Handle afk at each window loading
+      let afkData = localStorage.getItem("afk_data")
+      afkData = JSON.parse(afkData)
+      console.log("hello", afkData)
+      afkStepFunction = makeStepFunctionAFK(afkData, "not-afk", "afk")
+
+      function getDates(data) {
+        let datearray = [0]
+        data.forEach((element) => {
+          if (element[0] != datearray[datearray.length-1]) {
+            datearray.push(element[0])
+          }
+        })
+        return datearray.slice(1)
+      }
+
+      function makeStepFunctionAFK(data, posvalue, negvalue) {
+        let times15min = arr15min();
+
+        afkDates = getDates(data)
+        let afkDailyData = {}
+        afkDates.forEach((element) => {
+          afkDailyData[element] = Array(times15min.length).fill(null);
+        })
+
+        data.forEach((element, index) => {
+          valueLocation = findTimeIndex(times15min, MakeClosest15mark(element[1]))
+          if (afkDailyData[element[0]][valueLocation] === null) {
+            afkDailyData[element[0]][valueLocation] = ""
+          }
+          if (element[3] == posvalue) {
+            afkDailyData[element[0]][valueLocation] += "1"
+          } else if (element[3] == negvalue) {
+            afkDailyData[element[0]][valueLocation] += "0"
+          }
+        })
+
+        afkDates.forEach((key) => {
+          let currentstatus = 0
+          afkDailyData[key].forEach((element, index) => {
+            if (element === null) {
+              afkDailyData[key][index] = currentstatus
+            } else if (typeof(element) == "string") {
+              element = Array.from(element, char => parseInt(char, 10))
+              afkDailyData[key][index] = Math.round(calculateAverage(element))
+              currentstatus = element[element.length - 1]
+            }
+          })
+        })
+
+        return afkDailyData
+      }
+
+      // function arrallmin() {
+      //   let timearray = [0];
+      //   for (i = 0; i<24; i++) {
+      //     for (j = 0; j<59; j++) {
+      //       timearray.push(timearray[timearray.length-1]+1)
+      //     }
+      //     timearray.push(timearray[timearray.length-1]+41)
+      //   }
+      //   return timearray
+      // }
+
+
+    </script>
+
+  </body>
+
+</html>
+

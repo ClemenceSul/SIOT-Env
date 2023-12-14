@@ -1,9 +1,13 @@
+### IMPORTS
 import pandas as pd
 from dataProcessing import DayData
 import seaborn as sn
 import matplotlib.pyplot as plt
 
+# In this file, uncomment the line underneath the function to see the graphs of that function. 
+# Feel free to change the dates. As a reminder, data collected between the 20th of November to the 24th of November had no actuations. Data collected from the 27th of November to the 1st of December had an actuation.
 
+# Gets the data of the day. Return either the correlation between the parameters or the amount dedicated to each.
 def getDailyCor(date, type="default"):
     data = DayData(date)
 
@@ -26,6 +30,8 @@ def getDailyCor(date, type="default"):
             "inroom": data["inroomduration"]
         } 
 
+
+### --- Get the correlation between the parameters on one day --- ###
 def OneDay(date):
     corr_matrix = getDailyCor(date)
     sn.heatmap(corr_matrix, annot=True)
@@ -33,6 +39,7 @@ def OneDay(date):
 
 # OneDay("2023-11-20")
 
+### --- Get the average correlation between parameters over a week --- ###
 def WeekAverage(datearr):
     week_corr = (getDailyCor(datearr[0]) + getDailyCor(datearr[1]) + getDailyCor(datearr[2]) + getDailyCor(datearr[3]) + getDailyCor(datearr[4])) / 5
     sn.heatmap(week_corr, annot=True)
@@ -40,6 +47,8 @@ def WeekAverage(datearr):
 
 # WeekAverage(["2023-11-20", "2023-11-21", "2023-11-22", "2023-11-23", "2023-11-24"])
 
+
+### --- Get the evolution of the correlation between the light and work datasets over a week --- ###
 def WeekLightWork(datearr):
     week_corr = [getDailyCor(datearr[0]).iloc[4, 0]*100, getDailyCor(datearr[1]).iloc[4, 0]*100, getDailyCor(datearr[2]).iloc[4, 0]*100, getDailyCor(datearr[3]).iloc[4, 0]*100, getDailyCor(datearr[4]).iloc[4, 0]*100]
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -54,8 +63,10 @@ def WeekLightWork(datearr):
 
     plt.show()
 
-WeekLightWork(["2023-11-20", "2023-11-21", "2023-11-22", "2023-11-23", "2023-11-24"])
+# WeekLightWork(["2023-11-20", "2023-11-21", "2023-11-22", "2023-11-23", "2023-11-24"])
 
+
+### --- Get the average correlation between parameters over a weekend --- ###
 def WeekendAverage(datearr):
     weekend_corr = (getDailyCor(datearr[0]) + getDailyCor(datearr[1])) / 2
     sn.heatmap(weekend_corr, annot=True)
@@ -63,6 +74,7 @@ def WeekendAverage(datearr):
 
 # WeekendAverage(["2023-11-25", "2023-11-26"])
 
+### --- Line graph of amounts spent on each parameter, and correlation between the amount attributed to each parameters --- ###
 def WeekAmounts(datearr):
     # Extract keys and values
     dict1 = getDailyCor(datearr[0], type="length")
@@ -137,6 +149,8 @@ def getKey(dicts, key, type="default"):
 
 # WeekAmounts(["2023-11-27", "2023-11-28", "2023-11-29", "2023-11-30", "2023-12-01"])
 
+
+### --- Compare the average daily amount of each parameter between before and after the actuation --- ###
 def compareWeeksAverage():
     datearr = [
         ["2023-11-20", "2023-11-21", "2023-11-22", "2023-11-23", "2023-11-24"],
@@ -170,80 +184,3 @@ def compareWeeksAverage():
     print (data)
 
 # compareWeeksAverage()
-
-def compareWeeks():
-    datearr = [
-        ["2023-11-20", "2023-11-21", "2023-11-22", "2023-11-23", "2023-11-24"],
-        ["2023-11-27", "2023-11-28", "2023-11-29", "2023-11-30", "2023-12-01"]
-    ]
-    data = []
-    for week in datearr:
-        dict1 = getDailyCor(week[0], type="length")
-        dict2 = getDailyCor(week[1], type="length")
-        dict3 = getDailyCor(week[2], type="length")
-        dict4 = getDailyCor(week[3], type="length")
-        dict5 = getDailyCor(week[4], type="length")
-
-        dict_list = [dict1, dict2, dict3, dict4, dict5]
-        work_values = getKey(dict_list, "work", type="minmax")
-        sleep_values = getKey(dict_list, "sleep", type="minmax")
-        distraction_values = getKey(dict_list, "distractions", type="minmax")
-        light_values = getKey(dict_list, "light", type="minmax")
-        inroom_values = getKey(dict_list, "inroom", type="minmax")
-
-        weekdata = {
-            "work": work_values,
-            "sleep": sleep_values,
-            "distractions": distraction_values,
-            "light": light_values,
-            "inroom": inroom_values
-        }
-        data.append(weekdata)
-
-    ### Light vs Work
-    x_values = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    bar_width = 0.35  # Width of each bar
-
-
-    plt.plot(x_values, data[0]['light'], color="blue", linestyle='--', label='light') # light with no actuation
-    plt.bar(x_values - bar_width/2, data[1]['light'], color="blue") # light with actuation
-
-    plt.plot(x_values, data[0]['work'], color="green", linestyle='--', label='work') # work with no actuation
-    plt.bar(x_values + bar_width/2, data[1]['work'], color="green") # work with actuation    
-
-    plt.xlabel('Days')
-    plt.ylabel('Amount')
-    plt.title('Light vs Work')
-
-    # Adding legend
-    plt.legend()
-
-    # Display the plot
-    plt.show()
-
-    ### Light vs Distractions
-    plt.plot(x_values, data[0]['light'], color="blue", linestyle='--', label='light') # light with no actuation
-    plt.bar(x_values - bar_width/2, data[1]['light'], color="blue") # light with actuation
-
-    plt.plot(x_values, data[0]['distractions'], color="green", linestyle='--', label='distractions') # distractions with no actuation
-    plt.bar(x_values + bar_width/2, data[1]['distractions'], color="green") # distractions with actuation    
-
-    plt.xlabel('Days')
-    plt.ylabel('Amount')
-    plt.title('Light vs Distractions')
-
-    # Adding legend
-    plt.legend()
-
-    # Display the plot
-    plt.show()
-
-    ### Light vs Sleep
-
-    ### Work vs In room
-
-    ### Sleep vs Work
-
-    ### Distractions vs in room
-
-# compareWeeks()
